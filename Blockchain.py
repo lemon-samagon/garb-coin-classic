@@ -5,6 +5,7 @@ import json
 import time
 import os
 import random
+from flask import Flask
 try:
     import ctypes
 except:
@@ -89,6 +90,7 @@ class Blockchain(object):
                 'sender': sender_addr,
                 'recipient': recipient_addr,
                 'amount': amount,
+                'signature' : signature
             })
             print("\03332mSuccesful transaction!")
             return self.last_block['index'] + 1
