@@ -5,7 +5,6 @@ import json
 import time
 import os
 import random
-from flask import Flask
 try:
     import ctypes
 except:
@@ -19,12 +18,12 @@ class Blockchain(object):
             pass #Hello, Linux
         self.chain = []
         self.current_transactions = []
-        self.__nonce = 0
+        self.nonce = 0
         self.difficulty = 6 #6 = 180.5 MH, 5 = 1 MH, 4 = 45.1 KH
         self.difficulty2 = 100
         self.valid1 = "0"
         if not os.path.exists("blockchainGBC/1.json"):
-            self.__create_block(1)
+            self.create_block(1)
         self.sync()
     def mine(self):
         self.valid1 = "0"
@@ -36,12 +35,12 @@ class Blockchain(object):
         seconds = int(time.time())
         timeforblock = seconds
         while self.valid1[:self.difficulty] != "0" * self.difficulty:
-            self.__nonce = random.randint(1, "9" * self.difficulty2)
-            self.__nonce = str(self.__nonce)
+            self.nonce = random.randint(1, "9" * self.difficulty2)
+            self.nonce = str(self.nonce)
             self.valid1 = sha256((prv_hash).encode())
             self.valid2 = self.valid1.update(self.__nonce.encode())
             self.valid1 = str(self.valid1.hexdigest())
-            self.__nonce = int(self.__nonce)
+            self.nonce = int(self.nonce)
             hashes += 1
             all_hashes += 1
             if seconds + 10 == int(time.time()):
@@ -50,25 +49,25 @@ class Blockchain(object):
                 hashes = 0
                 seconds = int(time.time())
         print("\033[33m\033[2mNonce has been founded!")
-        print("\033[33mNonce: {0} \nResult: {1}".format(self.__nonce, self.valid1))
+        print("\033[33mNonce: {0} \nResult: {1}".format(self.nonce, self.valid1))
         print("\033[33mTotal hashes: {}".format(all_hashes))
         print("\033[33mTotal time: {} seconds".format(time.time() - timeforblock))
         self.valid1 = "0"
         self.valid2 = "0"
-        self.__create_block(self.hash(self.last_block))
-    def __create_block(self,previous_hash=None):
+        #self.__create_block(self.hash(self.last_block))
+    def create_block(self,previous_hash=None):
         if os.path.exists("blockchainGBC/1.json"):
-            self.__nonce = str(self.__nonce)
+            self.nonce = str(self.nonce)
             self.valid1 = sha256((previous_hash).encode())
-            self.valid2 = self.valid1.update(self.__nonce.encode())
+            self.valid2 = self.valid1.update(self.nonce.encode())
             self.valid1 = str(self.valid1.hexdigest())
-            self.__nonce = int(self.__nonce)
+            self.nonce = int(self.nonce)
         if self.valid1[:self.difficulty] == "0" * self.difficulty or not os.path.exists("blockchainGBC/1.json"):
-            self.__nonce = int(self.__nonce)
+            self.nonce = int(self.nonce)
             block = {
                 'index': len(self.chain) + 1,
                 'timestamp': time.time(),
-                '__nonce' : self.__nonce,
+                'nonce' : self.nonce,
                 'transactions': self.current_transactions,
                 'previous_hash': previous_hash or self.hash(self.chain[-1]),
             }
@@ -80,12 +79,15 @@ class Blockchain(object):
                 json.dump(self.block, block_file, indent=5)
             self.chain.append(block)
             print("\033[32mSuccsesfuly apended block to the blockchain!")
+            self.nonce = 0
+            return block
         else:
             print("\033[31mInvalid proof of work")
-        self.__nonce = 0
+            self.nonce = 0
+            return None
     def new_transaction(self, sender_addr, recipient_addr, amount, signature):
         valid = sha256(signature.encode()).hexdigest()
-        if valid == sender_addr:
+        if valid == sender_addr or signature == "0":
             self.current_transactions.append({
                 'sender': sender_addr,
                 'recipient': recipient_addr,
