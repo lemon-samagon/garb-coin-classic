@@ -35,10 +35,10 @@ class Blockchain(object):
         seconds = int(time.time())
         timeforblock = seconds
         while self.valid1[:self.difficulty] != "0" * self.difficulty:
-            self.nonce = random.randint(1, "9" * self.difficulty2)
+            self.nonce = random.randint(1, 9 * self.difficulty2)
             self.nonce = str(self.nonce)
             self.valid1 = sha256((prv_hash).encode())
-            self.valid2 = self.valid1.update(self.__nonce.encode())
+            self.valid2 = self.valid1.update(self.nonce.encode())
             self.valid1 = str(self.valid1.hexdigest())
             self.nonce = int(self.nonce)
             hashes += 1
