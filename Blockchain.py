@@ -4,6 +4,7 @@ from hashlib import sha256
 import json
 import time
 import os
+import rsa
 import random
 try:
     import ctypes
@@ -22,10 +23,13 @@ class Blockchain(object):
         self.difficulty = 6 #6 = 180.5 MH, 5 = 1 MH, 4 = 45.1 KH
         self.difficulty2 = 100
         self.valid1 = "0"
+        self.stop_mining = False
         if not os.path.exists("blockchainGBC/1.json"):
             self.create_block(1)
         self.sync()
-    def mine(self):
+
+
+    def mine(self, limit):
         self.valid1 = "0"
         self.valid2 = "0"
         prv_hash = self.hash(self.last_block)
@@ -35,26 +39,35 @@ class Blockchain(object):
         seconds = int(time.time())
         timeforblock = seconds
         while self.valid1[:self.difficulty] != "0" * self.difficulty:
-            self.nonce = random.randint(1, 9 * self.difficulty2)
-            self.nonce = str(self.nonce)
-            self.valid1 = sha256((prv_hash).encode())
-            self.valid2 = self.valid1.update(self.nonce.encode())
-            self.valid1 = str(self.valid1.hexdigest())
-            self.nonce = int(self.nonce)
-            hashes += 1
-            all_hashes += 1
-            if seconds + 10 == int(time.time()):
-                hashrate = hashes // 10 // 1000
-                print("\033[34mHashrate: {}KH/s".format(hashrate))
-                hashes = 0
-                seconds = int(time.time())
+            if not self.stop_mining:
+                self.nonce = random.randint(1, 9 * self.difficulty2)
+                self.nonce = str(self.nonce)
+                if limit != 0:
+                    time.sleep(limit / 1000)
+                    self.valid1 = sha256((prv_hash).encode())
+                    self.valid2 = self.valid1.update(self.nonce.encode())
+                else:
+                    self.valid1 = sha256((prv_hash).encode())
+                    self.valid2 = self.valid1.update(self.nonce.encode())
+                self.valid1 = str(self.valid1.hexdigest())
+                self.nonce = int(self.nonce)
+                hashes += 1
+                all_hashes += 1
+                if seconds + 10 == int(time.time()):
+                    hashrate = hashes // 10 // 1000
+                    print("\033[34mHashrate: {}KH/s".format(hashrate))
+                    hashes = 0
+                    seconds = int(time.time())
+            else:
+                time.sleep(0.5)
         print("\033[33m\033[2mNonce has been founded!")
         print("\033[33mNonce: {0} \nResult: {1}".format(self.nonce, self.valid1))
         print("\033[33mTotal hashes: {}".format(all_hashes))
         print("\033[33mTotal time: {} seconds".format(time.time() - timeforblock))
         self.valid1 = "0"
         self.valid2 = "0"
-        #self.__create_block(self.hash(self.last_block))
+
+
     def create_block(self,previous_hash=None):
         if os.path.exists("blockchainGBC/1.json"):
             self.nonce = str(self.nonce)
@@ -85,19 +98,21 @@ class Blockchain(object):
             print("\033[31mInvalid proof of work")
             self.nonce = 0
             return None
-    def new_transaction(self, sender_addr, recipient_addr, amount, signature):
-        valid = sha256(signature.encode()).hexdigest()
-        if valid == sender_addr or signature == "0":
-            self.current_transactions.append({
-                'sender': sender_addr,
-                'recipient': recipient_addr,
-                'amount': amount,
-                'signature' : signature
-            })
-            print("\03332mSuccesful transaction!")
-            return self.last_block['index'] + 1
-        else:
-            print("\033[31mInvalid signature or sender addres")
+
+
+    def new_transaction(self, pub_sender_addr, recipient_addr, amount, prv_sender_key):
+        raw_transaction = {'sender': pub_sender_addr,'recipient': recipient_addr,'amount': amount}
+        signature = rsa.sign(raw_transaction,prv_sender_key, 'SHA-256')
+        signed_transaction = {
+            'sender': pub_sender_addr,
+            'recipient': recipient_addr,
+            'amount': amount,
+            'signature' : signature
+        }
+        self.current_transactions.append(signed_transaction)
+        print("\03332mSuccesful transaction!")
+        return raw_transaction,signature,signed_transaction
+
     def sync(self):
         for filename in os.listdir("blockchainGBC"):
             if filename.endswith('.json'):
@@ -106,6 +121,8 @@ class Blockchain(object):
                     block_info = json.load(block_file)
                     self.chain.append(block_info)
         return self.chain
+
+
     def difficulty_update(self):
         self.sync()
         last_block_info = self.last_block()['timestamp']
