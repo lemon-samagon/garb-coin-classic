@@ -1,7 +1,0 @@
-{
-    "PORT" : 43002,
-    "IP_ADDRESS" : "localhost",
-    "PRIORITY_NODES" : ["localhost:43000"],
-    "MINING_SPEED_LIMIT" : 0,
-    "NON_STANDARTIZED_MESSAGE_OUTPUT" : "False"
-}

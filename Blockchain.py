@@ -4,23 +4,24 @@ from hashlib import sha256
 import json
 import time
 import os
-import rsa
+from ecdsa.util import sigencode_der
+from ecdsa import SigningKey,BadSignatureError
 import random
 try:
     import ctypes
 except:
-    pass #Welcome, Linux
+    pass 
 class Blockchain(object):
     def __init__(self):
         try:
             kernel32 = ctypes.windll.kernel32
             kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
         except:
-            pass #Hello, Linux
+            pass 
         self.chain = []
         self.current_transactions = []
         self.nonce = 0
-        self.difficulty = 6 #6 = 180.5 MH, 5 = 1 MH, 4 = 45.1 KH
+        self.difficulty = 6
         self.difficulty2 = 100
         self.valid1 = "0"
         self.stop_mining = False
@@ -29,7 +30,7 @@ class Blockchain(object):
         self.sync()
 
 
-    def mine(self, limit):
+    def mine(self):
         self.valid1 = "0"
         self.valid2 = "0"
         prv_hash = self.hash(self.last_block)
@@ -42,13 +43,8 @@ class Blockchain(object):
             if not self.stop_mining:
                 self.nonce = random.randint(1, 9 * self.difficulty2)
                 self.nonce = str(self.nonce)
-                if limit != 0:
-                    time.sleep(limit / 1000)
-                    self.valid1 = sha256((prv_hash).encode())
-                    self.valid2 = self.valid1.update(self.nonce.encode())
-                else:
-                    self.valid1 = sha256((prv_hash).encode())
-                    self.valid2 = self.valid1.update(self.nonce.encode())
+                self.valid1 = sha256((prv_hash).encode())
+                self.valid2 = self.valid1.update(self.nonce.encode())
                 self.valid1 = str(self.valid1.hexdigest())
                 self.nonce = int(self.nonce)
                 hashes += 1
@@ -102,7 +98,7 @@ class Blockchain(object):
 
     def new_transaction(self, pub_sender_addr, recipient_addr, amount, prv_sender_key):
         raw_transaction = {'sender': pub_sender_addr,'recipient': recipient_addr,'amount': amount}
-        signature = rsa.sign(raw_transaction,prv_sender_key, 'SHA-256')
+        signature = prv_sender_key.sign_deterministic(raw_transaction,hashfunc=sha256, sigencode=sigencode_der)
         signed_transaction = {
             'sender': pub_sender_addr,
             'recipient': recipient_addr,
@@ -113,6 +109,20 @@ class Blockchain(object):
         print("\03332mSuccesful transaction!")
         return raw_transaction,signature,signed_transaction
 
+    def verify_signature(self, transaction):
+        signature = transaction.pop('signature')
+        raw_transaction = transaction
+        pub_sender_addr = transaction['sender']
+        try:
+            ver = pub_sender_addr.verify(signature, raw_transaction, sha256, sigdecode = sigencode_der)
+            assert ver
+            print('Valid signature')
+            return True
+        except BadSignatureError:
+            print('Invalid signature') 
+            return False
+
+
     def sync(self):
         for filename in os.listdir("blockchainGBC"):
             if filename.endswith('.json'):
@@ -122,20 +132,27 @@ class Blockchain(object):
                     self.chain.append(block_info)
         return self.chain
 
+    def recover_chain(self, chain, difficulty):
+        self.difficulty = difficulty
+        blockchaindata_dir = 'blockchainGBC'
+        self.chain = []
+        for i in range(len(chain)):
+            filename = '%s/%s.json' % (blockchaindata_dir, (chain[i])["index"])
+            with open(filename, 'w') as block_file:
+                json.dump(chain[i], block_file, indent=5)
+            self.chain.append(chain[i])
+
 
     def difficulty_update(self):
         self.sync()
         last_block_info = self.last_block()['timestamp']
-        first_block_info = (self.chain[-2048])['timestamp']
+        first_block_info = (self.chain[-1024])['timestamp']
         block_time = last_block_info - first_block_info
         average_block_time = block_time // 7
-        if block_time > 4300800:
-            pass
-        elif block_time < 4300800:
-            #self.difficulty2 = average_block_time * total_hashrate
-            pass
-        elif block_time == 4300800:
-            pass
+        if block_time > 604800:
+            self.difficulty -= 1
+        elif block_time < 604800:
+            self.difficulty += 1
 
     @staticmethod
     def hash(block):    
@@ -149,13 +166,14 @@ class Blockchain(object):
         except:
             return {'index' : 0}
 
+    def export_blockchain(self):
+        return self.chain, self.difficulty
+
 if __name__ == "__main__":
-    # Ya znau chto etoi takoe
     try:
         kernel32 = ctypes.windll.kernel32
         kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
     except:
         pass
     input("\033[33m\033[2mThis is a module, please, do not open it manually")
-    pass
-    
+    print("\033[37m")

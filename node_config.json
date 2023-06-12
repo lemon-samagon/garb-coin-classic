@@ -1,7 +1,0 @@
-{
-    "PORT" : 43000,
-    "IP_ADDRESS" : "localhost",
-    "PRIORITY_NODES" : [],
-    "MINING_SPEED_LIMIT" : 0,
-    "NON_STANDARTIZED_MESSAGE_OUTPUT" : "False"
-}
